@@ -80,12 +80,13 @@ RunService.RenderStepped:Connect(function()
                 if hrp then
                     local alvoPos = hrp.Position
                     if FrostConfig.SilentAim then
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoPos)
-                    elseif FrostConfig.Aimbot then
-                        local dirAlvo = (alvoPos - Camera.CFrame.Position).Unit
-                        local currentDir = Camera.CFrame.LookVector
-                        local novaDir = currentDir:Lerp(dirAlvo, FrostConfig.AimbotSuavidade)
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + novaDir)
+    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, alvoPos)
+elseif FrostConfig.Aimbot then
+    local dirAlvo = (alvoPos - Camera.CFrame.Position).Unit
+    local currentDir = Camera.CFrame.LookVector
+    local novaDir = currentDir:Lerp(dirAlvo, FrostConfig.AimbotSuavidade)
+    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + novaDir)
+                            end
                     end
                 end
             end
