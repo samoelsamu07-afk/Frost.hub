@@ -1,83 +1,32 @@
--- =========================================================================
--- FROST HUB ❄️ - PRO EDITION (SEM BUGS / OTIMIZADO PARA MOBILE)
--- =========================================================================
+-- Evita que o script duplique na tela se você executar mais de uma vez
+if game:GetService("CoreGui"):FindFirstChild("FrostHubUi") then
+    game:GetService("CoreGui"):FindFirstChild("FrostHubUi"):Destroy()
+end
 
--- 1. NOTIFICAÇÃO DE INICIALIZAÇÃO (Estilo Hermanos Dev)
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Frost Hub ❄️",
-    Text = "Carregando a melhor UI de PvP Mobile...",
-    Duration = 4
-})
+-- 1. CARREGAR A BIBLIOTECA VISUAL KAVO (Mais leve e estável para Mobile)
+local Kavo = loadstring(game:HttpGet("https://githubusercontent.com"))()
 
--- 2. CARREGAR A BIBLIOTECA VISUAL FLUENT (Anti-Crash)
-local Fluent = loadstring(game:HttpGet("https://github.com"))()
+-- 2. CRIAR A JANELA PRINCIPAL (Design Escuro e Azul Gelo)
+local Window = Kavo.CreateLib("FROST HUB ❄️ | PvP Mobile", "DarkTheme")
 
--- 3. CONFIGURAR A JANELA PRINCIPAL
-local Window = Fluent:CreateWindow({
-    Title = "FROST HUB ❄️",
-    SubTitle = "Hermanos Dev Edition",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(450, 320),
-    Acrylic = false, -- Mantém o jogo leve e sem lag no celular
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.LeftControl
-})
-
--- 4. ÍCONE FLUTUANTE CUSTOMIZADO (ABRIR / MINIMIZAR)
-local FrostToggleGui = Instance.new("ScreenGui")
-local FrostButton = Instance.new("TextButton")
-local UICorner = Instance.new("UICorner")
-local UIStroke = Instance.new("UIStroke")
-
-FrostToggleGui.Name = "FrostToggleGui"
-FrostToggleGui.Parent = game:GetService("CoreGui")
-FrostToggleGui.ResetOnSpawn = false
-
-FrostButton.Name = "FrostButton"
-FrostButton.Parent = FrostToggleGui
-FrostButton.Position = UDim2.new(0.1, 0, 0.15, 0)
-FrostButton.Size = UDim2.new(0, 55, 0, 55)
-FrostButton.BackgroundColor3 = Color3.fromRGB(15, 20, 35) -- Fundo escuro azulado
-FrostButton.Text = "❄️"
-FrostButton.TextSize = 26
-FrostButton.TextColor3 = Color3.fromRGB(0, 210, 255)
-FrostButton.Active = true
-FrostButton.Draggable = true -- Permite arrastar o ícone com o dedo
-
-UICorner.CornerRadius = UDim.new(1, 0) -- Deixa o botão perfeitamente redondo
-UICorner.Parent = FrostButton
-
-UIStroke.Thickness = 2
-UIStroke.Color = Color3.fromRGB(0, 170, 255) -- Borda neon azul gelo
-UIStroke.Parent = FrostButton
-
--- Ação do botão flutuante para abrir e fechar a UI sem bugar
-FrostButton.MouseButton1Click:Connect(function()
-    Window:Minimize()
-end)
-
--- 5. CRIAR AS ABAS NO MENU
-local Tabs = {
-    Combate = Window:AddTab({ Title = "Combate PvP", Icon = "sword" }),
-    Visual = Window:AddTab({ Title = "Visual (ESP)", Icon = "eye" }),
-    Movimento = Window:AddTab({ Title = "Movimentação", Icon = "zap" })
-}
+-- 3. CRIAR AS ABAS LATERAIS
+local TabCombate = Window:NewTab("Combate PvP")
+local TabVisual = Window:NewTab("Visual (ESP)")
+local TabMovimento = Window:NewTab("Movimentação")
 
 -- ==================== ABA 1: COMBATE PvP ====================
+local SectionCombate = TabCombate:NewSection("Funções de Luta")
+
 local CamLockAtivado = false
 local HitboxAtivada = false
 local HitboxTamanho = 2
 
--- Toggle 1: CamLock Automático (Fixa a câmera no alvo)
-Tabs.Combate:AddToggle("ToggleCamLock", {
-    Title = "CamLock (Travar Câmera)", 
-    Default = false,
-    Callback = function(Value)
-        CamLockAtivado = Value
-    end
-})
+-- Botão Liga/Desliga do CamLock (Mira Automática)
+SectionCombate:NewToggle("CamLock (Travar Câmera)", "Foca a sua mira no inimigo mais próximo", function(state)
+    CamLockAtivado = state
+end)
 
--- Função segura para achar o jogador vivo mais próximo da mira
+-- Função de busca de alvos sem dar lag no celular
 local function obterJogadorMaisProximo()
     local maisProximo = nil
     local menorDistancia = math.huge
@@ -86,8 +35,8 @@ local function obterJogadorMaisProximo()
 
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
                 local pPos, naTela = camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
                 if naTela then
                     local mPos = game:GetService("UserInputService"):GetMouseLocation()
@@ -103,33 +52,25 @@ local function obterJogadorMaisProximo()
     return maisProximo
 end
 
--- Render do CamLock rodando na Câmera do Jogo sem atrasos
+-- Loop de câmera nativo do Roblox (Não trava)
 game:GetService("RunService").RenderStepped:Connect(function()
     if CamLockAtivado then
         local alvo = obterJogadorMaisProximo()
         if alvo and alvo.Character and alvo.Character:FindFirstChild("HumanoidRootPart") then
-            local camera = workspace.CurrentCamera
-            camera.CFrame = CFrame.new(camera.CFrame.Position, alvo.Character.HumanoidRootPart.Position)
+            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, alvo.Character.HumanoidRootPart.Position)
         end
     end
 end)
 
--- Toggle 2: Hitbox Infalível (Método Seguro contra Detecção)
-Tabs.Combate:AddToggle("ToggleHitbox", {
-    Title = "Expandir Hitbox dos Inimigos", 
-    Default = false,
-    Callback = function(Value)
-        HitboxAtivada = Value
-    end
-})
+-- Sistema de Hitbox
+SectionCombate:NewToggle("Expandir Hitbox", "Aumenta o corpo do adversário", function(state)
+    HitboxAtivada = state
+end)
 
-Tabs.Combate:AddSlider("SliderHitbox", {
-    Title = "Tamanho da Caixa",
-    Default = 2, Min = 2, Max = 15, Rounding = 0,
-    Callback = function(Value) HitboxTamanho = Value end
-})
+SectionCombate:NewSlider("Tamanho da Hitbox", "Ajuste o tamanho da caixa", 15, 2, function(v)
+    HitboxTamanho = v
+end)
 
--- Loop otimizado que altera o tamanho sem quebrar o jogo
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
@@ -153,18 +94,14 @@ task.spawn(function()
     end
 end)
 
--- ==================== ABA 2: VISUAL (ESP / WALLHACK) ====================
+-- ==================== ABA 2: VISUAL (ESP) ====================
+local SectionVisual = TabVisual:NewSection("Raios-X")
 local EspAtivado = false
 
-Tabs.Visual:AddToggle("ToggleESP", {
-    Title = "Ativar Wallhack (ESP Highlight)", 
-    Default = false,
-    Callback = function(Value)
-        EspAtivado = Value
-    end
-})
+SectionVisual:NewToggle("Ativar ESP Highlight", "Veja os jogadores pelas paredes", function(state)
+    EspAtivado = state
+end)
 
--- Criação e destruição dinâmica do efeito de raio-X nos oponentes
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
@@ -175,8 +112,8 @@ task.spawn(function()
                     local hl = char:FindFirstChild("FrostESP")
                     
                     if EspAtivado then
-                        local humanoid = char:FindFirstChildOfClass("Humanoid")
-                        if humanoid and humanoid.Health > 0 then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then
                             if not hl then
                                 hl = Instance.new("Highlight")
                                 hl.Name = "FrostESP"
@@ -198,39 +135,28 @@ task.spawn(function()
 end)
 
 -- ==================== ABA 3: MOVIMENTAÇÃO ====================
+local SectionMovimento = TabMovimento:NewSection("Velocidade e Pulo")
 local WalkSpeedOtimizado = 16
 
-Tabs.Movimento:AddSlider("SliderVelocidade", {
-    Title = "Velocidade de Corrida",
-    Default = 16, Min = 16, Max = 120, Rounding = 0,
-    Callback = function(Value)
-        WalkSpeedOtimizado = Value
-    end
-})
+SectionMovimento:NewSlider("Velocidade de Corrida", "Aumente sua velocidade", 120, 16, function(v)
+    WalkSpeedOtimizado = v
+end)
 
--- Loop persistente: Altera a velocidade mesmo se o jogador morrer ou o jogo tentar resetar
 task.spawn(function()
     while task.wait(0.1) do
         pcall(function()
             local p = game.Players.LocalPlayer
             if p.Character and p.Character:FindFirstChild("Humanoid") then
-                if p.Character.Humanoid.WalkSpeed ~= WalkSpeedOtimizado then
-                    p.Character.Humanoid.WalkSpeed = WalkSpeedOtimizado
-                end
+                p.Character.Humanoid.WalkSpeed = WalkSpeedOtimizado
             end
         end)
     end
 end)
 
--- Pulo Infinito Sem Bugs de Queda
 local PuloInfinitoAtivado = false
-Tabs.Movimento:AddToggle("TogglePulo", {
-    Title = "Liberar Pulo Infinito", 
-    Default = false,
-    Callback = function(Value) 
-        PuloInfinitoAtivado = Value 
-    end
-})
+SectionMovimento:NewToggle("Liberar Pulo Infinito", "Pule quantas vezes quiser no ar", function(state)
+    PuloInfinitoAtivado = state
+end)
 
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if PuloInfinitoAtivado then
@@ -243,12 +169,31 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
--- Abre a aba de PvP automaticamente
-Tabs.Combate:Select()
+-- ==================== 4. ÍCONE FLUTUANTE SEGURO ====================
+local FrostToggleGui = Instance.new("ScreenGui")
+local FrostButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
 
--- Notificação de sucesso final
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Frost Hub ❄️",
-    Text = "Frost Hub injetado com sucesso!",
-    Duration = 3
-})
+FrostToggleGui.Name = "FrostHubUi"
+FrostToggleGui.Parent = game:GetService("CoreGui")
+FrostToggleGui.ResetOnSpawn = false
+
+FrostButton.Name = "FrostButton"
+FrostButton.Parent = FrostToggleGui
+FrostButton.Position = UDim2.new(0.1, 0, 0.2, 0)
+FrostButton.Size = UDim2.new(0, 50, 0, 50)
+FrostButton.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+FrostButton.Text = "❄️"
+FrostButton.TextSize = 24
+FrostButton.TextColor3 = Color3.fromRGB(0, 210, 255)
+FrostButton.Active = true
+FrostButton.Draggable = true
+
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = FrostButton
+
+-- Evento para abrir/fechar o menu Kavo com segurança total
+FrostButton.MouseButton1Click:Connect(function()
+    Kavo:ToggleUI()
+end)
+
