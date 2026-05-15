@@ -1,5 +1,5 @@
 -- 1. CARREGAR A BIBLIOTECA VISUAL FLUENT
-local Fluent = loadstring(game:HttpGet("https://github.com"))()
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 -- 2. CONFIGURAR A JANELA PRINCIPAL
 local Window = Fluent:CreateWindow({
@@ -41,7 +41,7 @@ local function obterJogadorMaisProximo()
     local camera = workspace.CurrentCamera
 
     for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
             local pPos, naTela = camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
             if naTela then
                 local mPos = game:GetService("UserInputService"):GetMouseLocation()
@@ -176,4 +176,3 @@ end)
 
 -- Iniciar na aba de combate
 Tabs.Combate:Select()
-
