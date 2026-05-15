@@ -161,8 +161,22 @@ for _, p in pairs(Players:GetPlayers()) do
 end
 
 -- INTERFACE VISUAL - Usando Fluent corrigido
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/fluent.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/savemanager.lua"))()
+-- INTERFACE VISUAL - Usando Fluent corrigido
+local Fluent
+local SaveManager
+
+pcall(function()
+    Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/fluent.lua"))()
+end)
+
+if not Fluent then
+    warn("❌ Falha ao carregar Fluent - using standard interface")
+    return
+end
+
+pcall(function()
+    SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/savemanager.lua"))()
+end)
 
 local Window = Fluent:CreateWindow({
     Title = "FROST HUB ❄️ | Blox Fruits",
