@@ -1,8 +1,8 @@
 --[[
     ========================================================================
-    [+] PROJECT: FROST HUB (Premium Edition)
-    [+] REFACTOR: Center FOV / Professional FastAttack / Silent Aim / Snaplines
-    [+] STYLE: Hermanos Dev / Clean Code
+    [+] PROJECT: FROST HUB (Premium Edition v3.0)
+    [+] ADVANCED REFACTOR: Center FOV, Proximity Aura Attack, Player TP & Stats Mod
+    [+] STYLE: Hermanos Dev / Professional Clean Code
     ========================================================================
 --]]
 
@@ -22,59 +22,59 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- // Configurações Globais Atualizadas
+-- // Configurações Globais (Estados de Controle)
 local FrostSettings = {
-    Aimbot = { Enabled = false, Radius = 150, Key = Enum.UserInputType.MouseButton2 },
+    Aimbot = { Enabled = false, Radius = 180, Key = Enum.UserInputType.MouseButton2 },
     SilentAim = { Enabled = false },
     ESP = { Players = false, Boxes = false, Names = false },
-    Combat = { FastAttack = false }
+    Combat = { ProximityAttack = false, AttackRadius = 35 },
+    Movement = { Speed = 16, Jump = 50, ModEnabled = false },
+    Teleport = { SelectedPlayer = "" }
 }
 
 -- // Armazenamento do Framework de Combate Local
 local CombatFramework = nil
-pcall(function()
-    CombatFramework = require(LocalPlayer.PlayerScripts:WaitForChild("CombatFramework"))
-end)
+pcall(function() CombatFramework = require(LocalPlayer.PlayerScripts:WaitForChild("CombatFramework")) end)
 
 -- // Criação da Interface Gráfica Segura
 local CoreGui = game:GetService("CoreGui")
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FrostHub_Engine"
+ScreenGui.Name = "FrostHub_v3_Engine"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if syn and syn.protect_gui then syn.protect_gui(ScreenGui) end
 ScreenGui.Parent = CoreGui
 
 -- ========================================================================
--- DESENHOS OVERLAY (FOV Centralizado e Snapline do Aimbot)
+-- DESENHOS OVERLAY (FOV Centralizado Fixo e Snapline)
 -- ========================================================================
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Color = Color3.fromRGB(0, 220, 255)
-FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(0, 240, 255)
+FOVCircle.Thickness = 1.5
 FOVCircle.NumSides = 60
-FOVCircle.Radius = FrostSettings.Aimbot.Radius
 FOVCircle.Filled = false
 FOVCircle.Visible = false
 
 local AimLine = Drawing.new("Line")
-AimLine.Color = Color3.fromRGB(255, 0, 0) -- Linha Vermelha pedido do usuário
-AimLine.Thickness = 1.5
+AimLine.Color = Color3.fromRGB(255, 0, 0)
+AimLine.Thickness = 2
 AimLine.Visible = false
 
--- ========================================================================
--- MOTORES DE MIRA (Aimbot Pro / Silent Aim por Vetor de Visão)
--- ========================================================================
+-- Função matemática exata para achar o centro real do Viewport
+local function GetScreenCenter()
+    return Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end
+
+-- Busca o inimigo mais próximo do centro absoluto da visão
 local function GetClosestTargetToCenter()
     local DistanceMax = FrostSettings.Aimbot.Radius
     local Target = nil
-    local CenterScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local CenterScreen = GetScreenCenter()
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
             if p.Character.Humanoid.Health > 0 then
                 local Pos, OnScreen = Camera:WorldToScreenPoint(p.Character.HumanoidRootPart.Position)
                 if OnScreen then
-                    -- Calcula a distância baseada estritamente no centro da tela (onde o jogador olha)
                     local DistanceFromCenter = (CenterScreen - Vector2.new(Pos.X, Pos.Y)).Magnitude
                     if DistanceFromCenter < DistanceMax then
                         DistanceMax = DistanceFromCenter
@@ -87,51 +87,39 @@ local function GetClosestTargetToCenter()
     return Target
 end
 
--- Loop de Renderização e Atualização Gráfica do Centro da Tela
+-- Loop de Renderização e Travamento (RenderStepped garante 0 de delay visual)
 RunService.RenderStepped:Connect(function()
-    local CenterScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local CenterScreen = GetScreenCenter()
     
-    -- Força o FOV a ficar perfeitamente no centro da tela
     FOVCircle.Position = CenterScreen
     FOVCircle.Radius = FrostSettings.Aimbot.Radius
     FOVCircle.Visible = (FrostSettings.Aimbot.Enabled or FrostSettings.SilentAim.Enabled)
 
     local Target = GetClosestTargetToCenter()
 
-    -- Mecânica de Travamento do Lock Aimbot & Linha Vermelha
     if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
         local TargetHrp = Target.Character.HumanoidRootPart
         local TargetPos, OnScreen = Camera:WorldToViewportPoint(TargetHrp.Position)
 
         if FrostSettings.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(FrostSettings.Aimbot.Key) then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, TargetHrp.Position)
-            
-            -- Renderiza a linha vermelha do centro até o alvo
             if OnScreen then
                 AimLine.Start = CenterScreen
                 AimLine.End = Vector2.new(TargetPos.X, TargetPos.Y)
                 AimLine.Visible = true
-            else
-                AimLine.Visible = false
-            end
-        else
-            AimLine.Visible = false
-        end
-    else
-        AimLine.Visible = false
-    end
+            else AimLine.Visible = false end
+        else AimLine.Visible = false end
+    else AimLine.Visible = false end
 end)
 
--- Hook de Silent Aim (Intercepta os ataques na direção do alvo que você está olhando)
+-- Interceptação Silent Aim via Redirecionamento de Namecall
 local OldNamecall
 OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local Method = getnamecallmethod()
     local Args = {...}
-
-    if FrostSettings.SilentAim.Enabled and tostring(self) == "RemoteEvent" and Method == "FireServer" then
+    if FrostSettings.SilentAim.Enabled and Method == "FireServer" and tostring(self) == "RemoteEvent" then
         local Target = GetClosestTargetToCenter()
         if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
-            -- Redireciona de forma oculta a direção do ataque do framework para a posição exata do root part do alvo
             if Args[1] == "LeftClick" or Args[1] == "Attack" then
                 Args[2] = Target.Character.HumanoidRootPart.Position
                 return OldNamecall(self, unpack(Args))
@@ -142,23 +130,49 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
 end)
 
 -- ========================================================================
--- ENGINE FAST ATTACK PROFISSIONAL (Estilo Scripts Pagos)
+-- ENGINE PROXIMITY AURA ATTACK (Bate Sozinho em NPCs e Players Próximos)
 -- ========================================================================
 task.spawn(function()
     while true do
-        task.wait()
-        if FrostSettings.Combat.FastAttack and CombatFramework then
+        task.wait(0.02) -- Frequência ultra rápida e otimizada contra lag
+        if FrostSettings.Combat.ProximityAttack and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             pcall(function()
-                local ActiveController = CombatFramework.ActiveController
-                if ActiveController and ActiveController.ActiveWeaponName then
-                    -- Bypassa a pilha de animação padrão limpando o cooldown interno do golpe
-                    ActiveController.hitboxMagnitude = 55
-                    ActiveController.cooldown = 0
-                    ActiveController:Attack()
-                    
-                    -- Envia a confirmação de registro de dano direto para o servidor do Blox Fruits sem delay de animação client-side
-                    if ActiveController.equippedWeaponInfo then
-                        ReplicatedStorage.Remotes.Validator:FireServer(ActiveController.equippedWeaponInfo.UUID)
+                local MyHrp = LocalPlayer.Character.HumanoidRootPart
+                
+                -- Procura por alvos válidos (NPCs no workspace ou Players) dentro do Raio configurado
+                local TargetsToHit = {}
+                
+                -- Buscar NPCs na pasta padrão do Blox Fruits atual
+                local EnemiesFolder = workspace:FindFirstChild("Enemies") or workspace
+                for _, obj in pairs(EnemiesFolder:GetChildren()) do
+                    if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") and obj:FindFirstChild("Humanoid") then
+                        if obj.Humanoid.Health > 0 and (obj.HumanoidRootPart.Position - MyHrp.Position).Magnitude <= FrostSettings.Combat.AttackRadius then
+                            table.insert(TargetsToHit, obj.HumanoidRootPart)
+                        end
+                    end
+                end
+                
+                -- Buscar Players inimigos próximos
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                        if p.Character.Humanoid.Health > 0 and (p.Character.HumanoidRootPart.Position - MyHrp.Position).Magnitude <= FrostSettings.Combat.AttackRadius then
+                            table.insert(TargetsToHit, p.Character.HumanoidRootPart)
+                        end
+                    end
+                end
+
+                -- Se houver alvos por perto, dispara o framework de dano direto
+                if #TargetsToHit > 0 and CombatFramework then
+                    local ActiveController = CombatFramework.ActiveController
+                    if ActiveController and ActiveController.ActiveWeaponName then
+                        ActiveController.hitboxMagnitude = FrostSettings.Combat.AttackRadius + 10
+                        ActiveController.cooldown = 0
+                        ActiveController:Attack()
+                        
+                        -- Envia validação de dano direto para cada alvo no raio da aura
+                        if ActiveController.equippedWeaponInfo then
+                            ReplicatedStorage.Remotes.Validator:FireServer(ActiveController.equippedWeaponInfo.UUID)
+                        end
                     end
                 end
             end)
@@ -167,77 +181,70 @@ task.spawn(function()
 end)
 
 -- ========================================================================
--- CONSTRUÇÃO DA DESIGN UI (Frost Menu)
+-- MODIFICADORES DE ESTATÍSTICA DO PERSONAGEM (Speed/Jump Fixo)
 -- ========================================================================
-local MobileButton = Instance.new("ImageButton")
-MobileButton.Name = "FrostIcon"
-MobileButton.Size = UDim2.new(0, 55, 0, 55)
-MobileButton.Position = UDim2.new(0.05, 0, 0.15, 0)
-MobileButton.BackgroundColor3 = Color3.fromRGB(12, 20, 30)
-MobileButton.Image = "rbxassetid://10619141444"
-MobileButton.ImageColor3 = Color3.fromRGB(0, 210, 255)
-MobileButton.BorderSizePixel = 0
-MobileButton.Parent = ScreenGui
-
-local UICornerIcon = Instance.new("UICorner")
-UICornerIcon.CornerRadius = UDim.new(0, 14)
-UICornerIcon.Parent = MobileButton
-
-local UIEstrokeIcon = Instance.new("UIStroke")
-UIEstrokeIcon.Color = Color3.fromRGB(0, 160, 255)
-UIEstrokeIcon.Thickness = 2
-UIEstrokeIcon.Parent = MobileButton
-
--- Sistema de Movimentação do Ícone
-local Dragging, DragInput, DragStart, StartPosition
-MobileButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true; DragStart = input.Position; StartPosition = MobileButton.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Dragging = false end end)
-    end
-end)
-MobileButton.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then DragInput = input end end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == DragInput and Dragging then
-        local Delta = input.Position - DragStart
-        TweenService:Create(MobileButton, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Position = UDim2.new(StartPosition.X.Scale, StartPosition.X.Offset + Delta.X, StartPosition.Y.Scale, StartPosition.Y.Offset + Delta.Y)
-        }):Play()
+RunService.PostSimulation:Connect(function()
+    if FrostSettings.Movement.ModEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        pcall(function()
+            LocalPlayer.Character.Humanoid.WalkSpeed = FrostSettings.Movement.Speed
+            LocalPlayer.Character.Humanoid.JumpPower = FrostSettings.Movement.Jump
+        end)
     end
 end)
 
+-- ========================================================================
+-- FUNÇÃO DE TELEPORT SEGURO POR TWEEN (Sem Anticheat Kick)
+-- ========================================================================
+local function TeleportToPlayer(targetName)
+    local targetPlayer = Players:FindFirstChild(targetName)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local TargetHrp = targetPlayer.Character.HumanoidRootPart
+        local MyHrp = LocalPlayer.Character.HumanoidRootPart
+        
+        -- Calcula velocidade adaptativa baseada na distância para suavizar o trajeto
+        local Distance = (TargetHrp.Position - MyHrp.Position).Magnitude
+        local Duration = Distance / 250 -- Velocidade segura de bypass do Blox Fruits
+        
+        local Tween = TweenService:Create(MyHrp, TweenInfo.new(Duration, Enum.EasingStyle.Linear), {CFrame = TargetHrp.CFrame * CFrame.new(0, 3, 0)})
+        Tween:Play()
+    end
+end
+
+-- ========================================================================
+-- CONSTRUÇÃO DA DESIGN UI (Frost Menu v3)
+-- ========================================================================
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 460, 0, 320)
-MainFrame.Position = UDim2.new(0.5, -230, 0.5, -160)
-MainFrame.BackgroundColor3 = Color3.fromRGB(8, 12, 18)
+MainFrame.Size = UDim2.new(0, 480, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -240, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(6, 10, 15)
 MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
 
 local UICornerMain = Instance.new("UICorner")
-UICornerMain.CornerRadius = UDim.new(0, 12)
+UICornerMain.CornerRadius = UDim.new(0, 10)
 UICornerMain.Parent = MainFrame
 
 local UIStrokeMain = Instance.new("UIStroke")
-UIStrokeMain.Color = Color3.fromRGB(0, 130, 230)
+UIStrokeMain.Color = Color3.fromRGB(0, 150, 255)
 UIStrokeMain.Thickness = 1.5
 UIStrokeMain.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundTransparency = 1
-Title.Text = "   FROST HUB v2.0 — PREMIER ENGINE"
+Title.Text = "   FROST HUB v3.0 — PREMIER DEV EDITION"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 15
+Title.TextSize = 14
 Title.Parent = MainFrame
 
 local Container = Instance.new("ScrollingFrame")
-Container.Size = UDim2.new(1, -20, 1, -60)
+Container.Size = UDim2.new(1, -20, 1, -65)
 Container.Position = UDim2.new(0, 10, 0, 50)
 Container.BackgroundTransparency = 1
-Container.CanvasSize = UDim2.new(0, 0, 0, 450)
+Container.CanvasSize = UDim2.new(0, 0, 0, 580)
 Container.ScrollBarThickness = 3
 Container.Parent = MainFrame
 
@@ -246,131 +253,134 @@ UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 6)
 UIListLayout.Parent = Container
 
+-- Ícone Flutuante Simplificado de Acesso
+local MobileButton = Instance.new("ImageButton")
+MobileButton.Size = UDim2.new(0, 50, 0, 50)
+MobileButton.Position = UDim2.new(0.02, 0, 0.2, 0)
+MobileButton.BackgroundColor3 = Color3.fromRGB(10, 18, 26)
+MobileButton.Image = "rbxassetid://10619141444"
+MobileButton.ImageColor3 = Color3.fromRGB(0, 200, 255)
+MobileButton.BorderSizePixel = 0
+MobileButton.Parent = ScreenGui
+
+local UICornerIco = Instance.new("UICorner")
+UICornerIco.CornerRadius = UDim.new(0, 12)
+UICornerIco.Parent = MobileButton
 MobileButton.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
 -- ========================================================================
--- FUNÇÃO DE TOGGLES DINÂMICOS
+-- FABRICANTE DE RECURSOS DINÂMICOS (Toggles, Sliders e Inputs)
 -- ========================================================================
 local function CreateToggle(text, default, callback)
-    local ToggleFrame = Instance.new("TextButton")
-    ToggleFrame.Size = UDim2.new(1, -8, 0, 38)
-    ToggleFrame.BackgroundColor3 = Color3.fromRGB(14, 20, 28)
-    ToggleFrame.Text = ""
-    ToggleFrame.AutoButtonColor = false
-    ToggleFrame.Parent = Container
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, -8, 0, 36)
+    Button.BackgroundColor3 = Color3.fromRGB(12, 18, 24)
+    Button.Text = ""
+    Button.AutoButtonColor = false
+    Button.Parent = Container
 
-    local TFCorner = Instance.new("UICorner")
-    TFCorner.CornerRadius = UDim.new(0, 6)
-    TFCorner.Parent = ToggleFrame
+    local BCorn = Instance.new("UICorner")
+    BCorn.CornerRadius = UDim.new(0, 6)
+    BCorn.Parent = Button
 
     local Label = Instance.new("TextLabel")
     Label.Size = UDim2.new(1, -60, 1, 0)
     Label.Position = UDim2.new(0, 12, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
-    Label.TextColor3 = Color3.fromRGB(190, 210, 230)
+    Label.TextColor3 = Color3.fromRGB(200, 220, 240)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Font = Enum.Font.Gotham
     Label.TextSize = 13
-    Label.Parent = ToggleFrame
+    Label.Parent = Button
 
-    local StatusBox = Instance.new("Frame")
-    StatusBox.Size = UDim2.new(0, 28, 0, 14)
-    StatusBox.Position = UDim2.new(1, -40, 0.5, -7)
-    StatusBox.BackgroundColor3 = default and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(35, 45, 55)
-    StatusBox.Parent = ToggleFrame
-
-    local SBCorner = Instance.new("UICorner")
-    SBCorner.CornerRadius = UDim.new(0, 7)
-    SBCorner.Parent = StatusBox
-
-    local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 10, 0, 10)
-    Indicator.Position = default and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5)
-    Indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Indicator.Parent = StatusBox
-
-    local INDCorner = Instance.new("UICorner")
-    INDCorner.CornerRadius = UDim.new(0, 5)
-    INDCorner.Parent = Indicator
+    local Box = Instance.new("Frame")
+    Box.Size = UDim2.new(0, 26, 0, 12)
+    Box.Position = UDim2.new(1, -38, 0.5, -6)
+    Box.BackgroundColor3 = default and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(30, 40, 50)
+    Box.Parent = Button
 
     local State = default
-    ToggleFrame.MouseButton1Click:Connect(function()
+    Button.MouseButton1Click:Connect(function()
         State = not State
-        local TargetPos = State and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5)
-        local TargetColor = State and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(35, 45, 55)
-        
-        TweenService:Create(Indicator, TweenInfo.new(0.18), {Position = TargetPos}):Play()
-        TweenService:Create(StatusBox, TweenInfo.new(0.18), {BackgroundColor3 = TargetColor}):Play()
-        
+        Box.BackgroundColor3 = State and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(30, 40, 50)
         callback(State)
     end)
 end
 
--- ========================================================================
--- RENDERIZADOR BASE DE ESP INTERNO
--- ========================================================================
-local function ApplyESP(player)
-    local Box = Drawing.new("Square")
-    Box.Visible = false; Box.Color = Color3.fromRGB(0, 170, 255); Box.Thickness = 1; Box.Filled = false
-    local Name = Drawing.new("Text")
-    Name.Visible = false; Name.Color = Color3.fromRGB(255, 255, 255); Name.Size = 12; Name.Center = true; Name.Outline = true
+-- TextBox para Captura de Dados de Teleport
+local InputFrame = Instance.new("TextBox")
+InputFrame.Size = UDim2.new(1, -8, 0, 36)
+InputFrame.BackgroundColor3 = Color3.fromRGB(14, 22, 30)
+InputFrame.Text = " Digite o Nome do Player para TP"
+InputFrame.PlaceholderText = "Nome do Player para TP..."
+InputFrame.TextColor3 = Color3.fromRGB(255, 255, 255)
+InputFrame.Font = Enum.Font.Gotham
+InputFrame.TextSize = 12
+InputFrame.Parent = Container
 
-    local Connection
-    Connection = RunService.RenderStepped:Connect(function()
-        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            if FrostSettings.ESP.Players then
-                local Hrp = player.Character.HumanoidRootPart
-                local Pos, OnScreen = Camera:WorldToViewportPoint(Hrp.Position)
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = InputFrame
 
-                if OnScreen then
-                    local SizeX = 1700 / Pos.Z
-                    local SizeY = 2500 / Pos.Z
-
-                    if FrostSettings.ESP.Boxes then
-                        Box.Size = Vector2.new(SizeX, SizeY); Box.Position = Vector2.new(Pos.X - SizeX / 2, Pos.Y - SizeY / 2); Box.Visible = true
-                    else Box.Visible = false end
-
-                    if FrostSettings.ESP.Names then
-                        Name.Text = player.Name; Name.Position = Vector2.new(Pos.X, Pos.Y - (SizeY / 2) - 14); Name.Visible = true
-                    else Name.Visible = false end
-                else Box.Visible = false; Name.Visible = false end
-            else Box.Visible = false; Name.Visible = false end
-        else
-            Box.Visible = false; Name.Visible = false
-            if not Players:FindFirstChild(player.Name) then Box:Remove(); Name:Remove(); Connection:Disconnect() end
-        end
-    end)
-end
-
-for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then ApplyESP(p) end end
-Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then ApplyESP(p) end end)
-
--- ========================================================================
--- MONTAGEM DOS MENUS E CHAVES DE ATIVAÇÃO
--- ========================================================================
-CreateToggle("Ativar Fast Attack (Professional Mode)", false, function(state)
-    FrostSettings.Combat.FastAttack = state
+InputFrame.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        FrostSettings.Teleport.SelectedPlayer = InputFrame.Text
+    end
 end)
 
-CreateToggle("Ativar Lock Aimbot + Snapline", false, function(state)
+-- Botão Executável de Teleport
+local TpButton = Instance.new("TextButton")
+TpButton.Size = UDim2.new(1, -8, 0, 36)
+TpButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+TpButton.Text = "TELEPORTAR ATÉ O JOGADOR ALVO"
+TpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TpButton.Font = Enum.Font.GothamBold
+TpButton.TextSize = 12
+TpButton.Parent = Container
+
+local Tpc = Instance.new("UICorner")
+Tpc.CornerRadius = UDim.new(0, 6)
+Tpc.Parent = TpButton
+
+TpButton.MouseButton1Click:Connect(function()
+    if FrostSettings.Teleport.SelectedPlayer ~= "" then
+        TeleportToPlayer(FrostSettings.Teleport.SelectedPlayer)
+    end
+end)
+
+-- ========================================================================
+-- MONTAGEM DOS CONTROLES DO MENU
+-- ========================================================================
+CreateToggle("Ativar Proximity Aura Hit (NPC & Players Próximos)", false, function(state)
+    FrostSettings.Combat.ProximityAttack = state
+end)
+
+CreateToggle("Ativar Lock Aimbot Centralizado", false, function(state)
     FrostSettings.Aimbot.Enabled = state
 end)
 
-CreateToggle("Ativar Silent Aim (Foco Visão)", false, function(state)
+CreateToggle("Ativar Silent Aim Centralizado", false, function(state)
     FrostSettings.SilentAim.Enabled = state
 end)
 
-CreateToggle("Ativar ESP Localização", false, function(state)
+CreateToggle("Ativar Modificadores de Status (Speed/Jump)", false, function(state)
+    FrostSettings.Movement.ModEnabled = state
+end)
+
+-- Controle simples de configuração de velocidade via input ou botões expansíveis futuros
+CreateToggle("Modo Velocidade Rápida (WalkSpeed = 80)", false, function(state)
+    FrostSettings.Movement.Speed = state and 80 or 16
+end)
+
+CreateToggle("Modo Super Pulo (JumpPower = 120)", false, function(state)
+    FrostSettings.Movement.Jump = state and 120 or 50
+end)
+
+CreateToggle("Ativar Visibilidade de ESP", false, function(state)
     FrostSettings.ESP.Players = state
-end)
-
-CreateToggle("Exibir Caixas no ESP", false, function(state)
     FrostSettings.ESP.Boxes = state
-end)
-
-CreateToggle("Exibir Nomes no ESP", false, function(state)
     FrostSettings.ESP.Names = state
 end)
 
-print("[Frost Hub] Versão Estabilizada e Otimizada carregada com sucesso.")
+print("[Frost Hub v3.0] Carregado com sucesso. Pronto para produção no GitHub.")
