@@ -51,7 +51,7 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Procura inimigos vivos perto da mira
+-- Procura inimigos vivos perto da mira (Otimizado para Blox Fruits)
 local function obterInimigoPerto()
     local alvo, menorDistancia = nil, FrostConfig.AimbotRaio
     for _, player in pairs(Players:GetPlayers()) do
@@ -163,7 +163,7 @@ for _, p in pairs(Players:GetPlayers()) do
     end 
 end
 
--- INTERFACE VISUAL - Usando Fluent
+-- INTERFACE VISUAL - Usando Fluent corrigido
 local success, Fluent = pcall(function()
     return loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/fluent.lua"))()
 end)
@@ -289,19 +289,11 @@ RunService.Heartbeat:Connect(function()
             local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 hum.WalkSpeed = FrostConfig.Velocidade
+                hum.JumpPower = FrostConfig.Pulo
                 
-                -- Suporta tanto JumpPower quanto JumpHeight
-                if hum:FindFirstChild("Humanoid") or hum.Parent:FindFirstChildOfClass("Humanoid") then
-                    if hum:FindFirstAncestorOfClass("Humanoid") then
-                        hum.JumpPower = FrostConfig.Pulo
-                    end
-                end
-                
-                -- Para novos jogos que usam JumpHeight
-                if hum:FindFirstAncestor("Humanoid") == nil then
-                    pcall(function()
-                        hum.JumpHeight = FrostConfig.Pulo / 7
-                    end)
+                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and hum.JumpHeight then
+                    hum.JumpHeight = FrostConfig.Pulo / 4
                 end
             end
         end
