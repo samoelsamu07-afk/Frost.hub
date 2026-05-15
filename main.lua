@@ -70,6 +70,7 @@ local function obterInimigoPerto()
 end
 
 -- Aimbot & Silent Aim
+-- Aimbot & Silent Aim
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if FrostConfig.Aimbot or FrostConfig.SilentAim then
@@ -81,7 +82,10 @@ RunService.RenderStepped:Connect(function()
                     if FrostConfig.SilentAim then
                         Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoPos)
                     elseif FrostConfig.Aimbot then
-                        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvoPos), FrostConfig.AimbotSuavidade)
+                        local dirAlvo = (alvoPos - Camera.CFrame.Position).Unit
+                        local currentDir = Camera.CFrame.LookVector
+                        local novaDir = currentDir:Lerp(dirAlvo, FrostConfig.AimbotSuavidade)
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + novaDir)
                     end
                 end
             end
