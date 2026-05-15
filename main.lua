@@ -19,7 +19,7 @@ local FrostConfig = {
     Velocidade = 16,
     Pulo = 50,
     PuloInfinito = false,
-    AimbotRaio = 150 -- Distância máxima em pixels na tela
+    AimbotRaio = 150
 }
 
 local Players = game:GetService("Players")
@@ -27,6 +27,11 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+
+-- Aguarda o character carregar
+while not LocalPlayer.Character do
+    wait(0.1)
+end
 
 -- Círculo Visual do FOV
 local FOVCirculo = Drawing.new("Circle")
@@ -39,12 +44,14 @@ FOVCirculo.Visible = false
 
 -- Atualiza a posição do círculo
 RunService.RenderStepped:Connect(function()
-    local mPos = UserInputService:GetMouseLocation()
-    FOVCirculo.Position = Vector2.new(mPos.X, mPos.Y)
-    FOVCirculo.Radius = FrostConfig.AimbotRaio
+    pcall(function()
+        local mPos = UserInputService:GetMouseLocation()
+        FOVCirculo.Position = Vector2.new(mPos.X, mPos.Y)
+        FOVCirculo.Radius = FrostConfig.AimbotRaio
+    end)
 end)
 
--- Procura inimigos vivos perto da mira (Otimizado para Blox Fruits)
+-- Procura inimigos vivos perto da mira
 local function obterInimigoPerto()
     local alvo, menorDistancia = nil, FrostConfig.AimbotRaio
     for _, player in pairs(Players:GetPlayers()) do
@@ -95,6 +102,8 @@ ESPFolder.Name = "FrostESP_Storage"
 ESPFolder.Parent = game:GetService("CoreGui")
 
 local function CriarESP(player)
+    if player == LocalPlayer then return end
+    
     local Box = Instance.new("BoxHandleAdornment")
     Box.Name = player.Name .. "_Box"
     Box.Parent = ESPFolder
@@ -112,28 +121,31 @@ local function CriarESP(player)
     Tracer.AlwaysOnTop = true
     Tracer.ZIndex = 5
 
-    RunService.RenderStepped:Connect(function()
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
         pcall(function()
-            if player and player.Character then
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                
-                if hrp and humanoid and humanoid.Health > 0 then
-                    if FrostConfig.ESP_Box then
-                        Box.Adornee = hrp
-                    else
-                        Box.Adornee = nil
-                    end
-                    
-                    if FrostConfig.ESP_Tracer then
-                        Tracer.Adornee = hrp
-                        local vetor = Camera.CFrame.Position - hrp.Position
-                        Tracer.Direction = vetor.Unit * -vetor.Magnitude
-                    else
-                        Tracer.Adornee = nil
-                    end
+            if not player or not player.Character then
+                connection:Disconnect()
+                Box:Destroy()
+                Tracer:Destroy()
+                return
+            end
+            
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            
+            if hrp and humanoid and humanoid.Health > 0 then
+                if FrostConfig.ESP_Box then
+                    Box.Adornee = hrp
                 else
                     Box.Adornee = nil
+                end
+                
+                if FrostConfig.ESP_Tracer then
+                    Tracer.Adornee = hrp
+                    Tracer.Point0 = Camera.CFrame.Position
+                    Tracer.Point1 = hrp.Position
+                else
                     Tracer.Adornee = nil
                 end
             else
@@ -151,9 +163,21 @@ for _, p in pairs(Players:GetPlayers()) do
     end 
 end
 
--- INTERFACE VISUAL - Usando Fluent corrigido
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/fluent.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/savemanager.lua"))()
+-- INTERFACE VISUAL - Usando Fluent
+local success, Fluent = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/fluent.lua"))()
+end)
+
+if not success then
+    warn("Falha ao carregar Fluent. Usando interface básica.")
+    local basicGui = Instance.new("ScreenGui")
+    basicGui.Parent = game:GetService("CoreGui")
+    local label = Instance.new("TextLabel")
+    label.Parent = basicGui
+    label.Text = "Frost Hub - Erro ao carregar UI"
+    label.Size = UDim2.new(0, 300, 0, 50)
+    return
+end
 
 local Window = Fluent:CreateWindow({
     Title = "FROST HUB ❄️ | Blox Fruits",
@@ -261,15 +285,23 @@ Tabs.Movimento:AddToggle("TogglePuloInf", {
 -- Loop de aplicação de valores
 RunService.Heartbeat:Connect(function()
     pcall(function()
-        if LocalPlayer.Character then
+        if LocalPlayer and LocalPlayer.Character then
             local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 hum.WalkSpeed = FrostConfig.Velocidade
-                hum.JumpPower = FrostConfig.Pulo
                 
-                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if hrp and hum.JumpHeight then
-                    hum.JumpHeight = FrostConfig.Pulo / 4
+                -- Suporta tanto JumpPower quanto JumpHeight
+                if hum:FindFirstChild("Humanoid") or hum.Parent:FindFirstChildOfClass("Humanoid") then
+                    if hum:FindFirstAncestorOfClass("Humanoid") then
+                        hum.JumpPower = FrostConfig.Pulo
+                    end
+                end
+                
+                -- Para novos jogos que usam JumpHeight
+                if hum:FindFirstAncestor("Humanoid") == nil then
+                    pcall(function()
+                        hum.JumpHeight = FrostConfig.Pulo / 7
+                    end)
                 end
             end
         end
@@ -280,7 +312,7 @@ end)
 UserInputService.JumpRequest:Connect(function()
     if FrostConfig.PuloInfinito then
         pcall(function()
-            if LocalPlayer.Character then
+            if LocalPlayer and LocalPlayer.Character then
                 local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
                 if hum then
                     hum:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -309,6 +341,7 @@ FrostButton.TextSize = 24
 FrostButton.TextColor3 = Color3.fromRGB(0, 210, 255)
 FrostButton.Active = true
 FrostButton.Draggable = true
+FrostButton.BorderSizePixel = 0
 
 UICorner.CornerRadius = UDim.new(1, 0)
 UICorner.Parent = FrostButton
@@ -321,4 +354,10 @@ FrostButton.MouseButton1Click:Connect(function()
     Window:Minimize()
 end)
 
+-- Tratamento de reconexão ao morrer
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    wait(0.1)
+end)
+
 Tabs.Combate:Select()
+print("✅ FROST HUB carregado com sucesso!")
