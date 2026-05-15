@@ -1,12 +1,10 @@
 -- =========================================================================
--- FROST PVP DEV HUB ❄️ | DELTA MOBILE VERSION (ANTI-CRASH)
+-- FROST PVP DEV HUB ❄️ | RECALIBRADO & CORRIGIDO
 -- =========================================================================
 
--- Limpeza preventiva de execuções anteriores para evitar travamento de memória
 if game:GetService("CoreGui"):FindFirstChild("FrostToggleGui") then game:GetService("CoreGui").FrostToggleGui:Destroy() end
 if game:GetService("CoreGui"):FindFirstChild("FrostESP_Storage") then game:GetService("CoreGui").FrostESP_Storage:Destroy() end
 
--- Configurações Globais Controladas pela Interface
 local FrostConfig = {
     Aimbot = false,
     AimbotSuavidade = 0.1,
@@ -16,19 +14,35 @@ local FrostConfig = {
     ESP_Tracer = false,
     Velocidade = 16,
     Pulo = 50,
-    PuloInfinito = false
+    PuloInfinito = false,
+    AimbotRaio = 150 -- Distância máxima em pixels na tela (Aimbot não puxa de longe)
 }
 
--- Serviços Nativos do Roblox
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- Procura o jogador vivo mais próximo da mira na tela do celular
-local function obterInimigoMaisProximo()
-    local alvo, menorDistancia = nil, math.huge
+-- Círculo Visual do FOV (Indica o limite de aproximação do Aimbot)
+local FOVCirculo = Drawing.new("Circle")
+FOVCirculo.Color = Color3.fromRGB(0, 210, 255)
+FOVCirculo.Thickness = 1.5
+FOVCirculo.NumSides = 64
+FOVCirculo.Radius = FrostConfig.AimbotRaio
+FOVCirculo.Filled = false
+FOVCirculo.Visible = false
+
+-- Atualiza a posição do círculo de limite na tela do celular
+RunService.RenderStepped:Connect(function()
+    local mPos = UserInputService:GetMouseLocation()
+    FOVCirculo.Position = Vector2.new(mPos.X, mPos.Y)
+    FOVCirculo.Radius = FrostConfig.AimbotRaio
+end)
+
+-- Procura inimigos vivos APENAS se estiverem perto da mira (dentro do limite)
+local function obterInimigoPerto()
+    local alvo, menorDistancia = nil, FrostConfig.AimbotRaio
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(FrostConfig.HitboxAlvo) then
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
@@ -48,19 +62,16 @@ local function obterInimigoMaisProximo()
     return alvo
 end
 
--- Mecânica Híbrida: Controla o Aimbot Suave e o Silent Aim Seguro para Mobile
+-- Thread Corrigida de Combate
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if FrostConfig.Aimbot or FrostConfig.SilentAim then
-            local inimigo = obterInimigoMaisProximo()
+            local inimigo = obterInimigoPerto()
             if inimigo and inimigo.Character and inimigo.Character:FindFirstChild(FrostConfig.HitboxAlvo) then
                 local alvoPos = inimigo.Character[FrostConfig.HitboxAlvo].Position
-                
                 if FrostConfig.SilentAim then
-                    -- Silent Aim Otimizado para Delta: Redireciona a Câmera apenas no milissegundo do ataque
                     Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoPos)
                 elseif FrostConfig.Aimbot then
-                    -- Aimbot Legítimo: Segue o inimigo de forma fluida usando interpolação linear
                     Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvoPos), FrostConfig.AimbotSuavidade)
                 end
             end
@@ -68,46 +79,49 @@ RunService.RenderStepped:Connect(function()
     end)
 end)
 
--- Sistema de Renderização do ESP (Wallhack com Suporte a Mobile)
+-- CORREÇÃO DO ESP: Novo método usando Adornments (À prova de falhas no Delta)
 local ESPFolder = Instance.new("Folder")
 ESPFolder.Name = "FrostESP_Storage"
 ESPFolder.Parent = game:GetService("CoreGui")
 
 local function CriarESP(player)
-    local Highlight = Instance.new("Highlight")
-    Highlight.Name = player.Name .. "_HL"
-    Highlight.Parent = ESPFolder
-    Highlight.FillColor = Color3.fromRGB(0, 210, 255)
-    Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    
+    local Box = Instance.new("BoxHandleAdornment")
+    Box.Name = player.Name .. "_Box"
+    Box.Parent = ESPFolder
+    Box.Size = Vector3.new(4, 6, 4)
+    Box.Color3 = Color3.fromRGB(0, 210, 255)
+    Box.Transparency = 0.6
+    Box.AlwaysOnTop = true
+    Box.ZIndex = 5
+
     local Tracer = Instance.new("LineHandleAdornment")
     Tracer.Name = player.Name .. "_Tracer"
     Tracer.Parent = ESPFolder
-    Tracer.Length = 0
     Tracer.Thickness = 2
     Tracer.Color3 = Color3.fromRGB(0, 210, 255)
     Tracer.AlwaysOnTop = true
+    Tracer.ZIndex = 5
 
     RunService.RenderStepped:Connect(function()
         pcall(function()
-            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then
+            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
                 local hrp = player.Character.HumanoidRootPart
                 
-                -- Controle de Visibilidade do ESP Box
-                Highlight.Adornee = FrostConfig.ESP_Box and player.Character or nil
-                Highlight.FillTransparency = FrostConfig.ESP_Box and 0.5 or 1
-                Highlight.OutlineTransparency = FrostConfig.ESP_Box and 0 or 1
+                if FrostConfig.ESP_Box then
+                    Box.Adornee = hrp
+                else
+                    Box.Adornee = nil
+                end
                 
-                -- Controle de Visibilidade do ESP Tracer (Linhas)
                 if FrostConfig.ESP_Tracer then
                     Tracer.Adornee = hrp
-                    local vetorDistancia = Camera.CFrame.Position - hrp.Position
-                    Tracer.Direction = vetorDistancia.Unit * -vetorDistancia.Magnitude
+                    local vetor = Camera.CFrame.Position - hrp.Position
+                    Tracer.Direction = vetor.Unit * -vetor.Magnitude
                 else
                     Tracer.Adornee = nil
                 end
             else
-                Highlight.Adornee = nil
+                Box.Adornee = nil
                 Tracer.Adornee = nil
             end
         end)
@@ -117,15 +131,15 @@ end
 Players.PlayerAdded:Connect(CriarESP)
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CriarESP(p) end end
 
--- Interface Gráfica Otimizada (Fluent Library Estável)
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- INTERFACE VISUAL
+local Fluent = loadstring(game:HttpGet("https://github.com"))()
 
 local Window = Fluent:CreateWindow({
     Title = "FROST HUB ❄️",
-    SubTitle = "Frost PvP Dev v1.0",
+    SubTitle = "Frost PvP Dev v1.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(460, 330),
-    Acrylic = false, -- Desativado para evitar travamento gráfico no Delta
+    Acrylic = false,
     Theme = "Dark"
 })
 
@@ -135,31 +149,36 @@ local Tabs = {
     Movimento = Window:AddTab({ Title = "Movimentação", Icon = "zap" })
 }
 
--- Configurações da Aba de Combate
-Tabs.Combate:AddToggle("ToggleAimbot", { Title = "Ativar Aimbot Suave", Default = false, Callback = function(v) FrostConfig.Aimbot = v end })
-Tabs.Combate:AddSlider("SliderSuave", { Title = "Suavidade do Aimbot", Default = 0.1, Min = 0.01, Max = 1, Rounding = 2, Callback = function(v) FrostConfig.AimbotSuavidade = v end })
-Tabs.Combate:AddToggle("ToggleSilent", { Title = "Ativar Silent Aim (Rage)", Default = false, Callback = function(v) FrostConfig.SilentAim = v end })
-Tabs.Combate:AddDropdown("DropHitbox", { Title = "Foco do Ataque", Values = {"HumanoidRootPart", "Head"}, CurrentValue = "HumanoidRootPart", Callback = function(v) FrostConfig.HitboxAlvo = v end })
+-- COMBATE
+Tabs.Combate:AddToggle("ToggleAimbot", { Title = "Ativar Aimbot Próximo", Default = false, Callback = function(v) FrostConfig.Aimbot = v FOVCirculo.Visible = v end })
+Tabs.Combate:AddSlider("SliderRaio", { Title = "Raio de Proximidade (FOV)", Default = 150, Min = 50, Max = 400, Rounding = 0, Callback = function(v) FrostConfig.AimbotRaio = v end })
+Tabs.Combate:AddSlider("SliderSuave", { Title = "Suavidade da Mira", Default = 0.1, Min = 0.01, Max = 1, Rounding = 2, Callback = function(v) FrostConfig.AimbotSuavidade = v end })
+Tabs.Combate:AddToggle("ToggleSilent", { Title = "Ativar Silent Aim", Default = false, Callback = function(v) FrostConfig.SilentAim = v end })
 
--- Configurações da Aba Visual
-Tabs.Visual:AddToggle("ToggleESPBox", { Title = "Exibir Caixa 3D (ESP Box)", Default = false, Callback = function(v) FrostConfig.ESP_Box = v end })
+-- VISUAL
+Tabs.Visual:AddToggle("ToggleESPBox", { Title = "Exibir Caixas (ESP Box)", Default = false, Callback = function(v) FrostConfig.ESP_Box = v end })
 Tabs.Visual:AddToggle("ToggleESPTracer", { Title = "Exibir Linhas (Tracers)", Default = false, Callback = function(v) FrostConfig.ESP_Tracer = v end })
 
--- Configurações da Aba de Movimentação
-Tabs.Movimento:AddSlider("SliderSpeed", { Title = "Velocidade de Corrida", Default = 16, Min = 16, Max = 150, Rounding = 0, Callback = function(v) FrostConfig.Velocidade = v end })
+-- MOVIMENTAÇÃO (CORRIGIDA VIA HUMANOD COMPACTO & VELOCIDADE FORÇADA)
+Tabs.Movimento:AddSlider("SliderSpeed", { Title = "Velocidade de Corrida", Default = 16, Min = 16, Max = 120, Rounding = 0, Callback = function(v) FrostConfig.Velocidade = v end })
 Tabs.Movimento:AddSlider("SliderJump", { Title = "Força do Pulo", Default = 50, Min = 50, Max = 200, Rounding = 0, Callback = function(v) FrostConfig.Pulo = v end })
 Tabs.Movimento:AddToggle("TogglePuloInf", { Title = "Habilitar Pulo Infinito", Default = false, Callback = function(v) FrostConfig.PuloInfinito = v end })
 
--- Loop de Aplicação das Forças Físicas (À prova de morte do personagem)
-task.spawn(function()
-    while task.wait(0.1) do
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.WalkSpeed = FrostConfig.Velocidade
-                LocalPlayer.Character.Humanoid.JumpPower = FrostConfig.Pulo
+-- Loop de Força Bruta para burlar travas de Speed dos jogos modernos
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            -- Força a velocidade diretamente na raiz de movimento do boneco
+            hum.WalkSpeed = FrostConfig.Velocidade
+            
+            -- Altera as duas propriedades de pulo para não bugar independente do jogo
+            hum.JumpPower = FrostConfig.Pulo
+            if LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and hum.Jump then
+                hum.JumpHeight = FrostConfig.Pulo / 4 -- Conversão padrão de física
             end
-        end)
-    end
+        end
+    end)
 end)
 
 UserInputService.JumpRequest:Connect(function()
@@ -172,7 +191,7 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Botão Flutuante Redondo Nativo para Mobile
+-- BOTÃO FLUTUANTE
 local FrostToggleGui = Instance.new("ScreenGui")
 local FrostButton = Instance.new("TextButton")
 local UICorner = Instance.new("UICorner")
