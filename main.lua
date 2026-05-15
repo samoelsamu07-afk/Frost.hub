@@ -1,34 +1,27 @@
 -- ====================================================================
--- FROST HUB v1.0 - DELTA EXECUTOR COMPATIBLE (PRO PVP EDITION)
+-- FROST HUB v1.0 - REESCRITO PARA DELTA EXECUTOR (KAVO STABLE)
 -- ====================================================================
 
-if getgenv().FrostHubLoaded then
-    return
-end
+-- Evita executar o script duas vezes e travar o Delta
+if getgenv().FrostHubLoaded then return end
 getgenv().FrostHubLoaded = true
 
--- Carregamento da interface estável no Delta
-local OrionLib = loadstring(game:HttpGet("https://githubusercontent.com"))()
+-- Carrega a Kavo Library (Link estável e otimizado para o Delta Mobile)
+local KavoLib = loadstring(game:HttpGet("https://githubusercontent.com"))()
 
-local Window = OrionLib:MakeWindow({
-    Name = "Frost Hub | Frost Hub", 
-    HidePremium = true, 
-    SaveConfig = false, 
-    ConfigFolder = "FrostHub"
-})
+-- Cria a janela principal com o Tema Visual Azul Frost
+local Window = KavoLib.CreateLib("Frost Hub | Frost Hub", "Aqua")
 
--- Variáveis Globais de Configuração
+-- Configurações Globais (Armazenadas na memória do Delta)
 getgenv().Aimbot = false
 getgenv().SilentAim = false
 getgenv().AimKill = false
 getgenv().FastAttack = false
 getgenv().ESP = false
-getgenv().FOV_Circle = false
-getgenv().FOV_Radius = 100
 getgenv().SpeedValue = 16
 getgenv().JumpValue = 50
 
--- Serviços Nativos do Roblox
+-- Serviços Essenciais
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = game:GetService("Workspace").CurrentCamera
@@ -36,61 +29,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
--- ====================================================================
--- SISTEMA DE BOTÃO FLUTUANTE PARA MINIMIZAR (MOBILE FRIENDLY)
--- ====================================================================
-local ScreenGui = Instance.new("ScreenGui")
-local ToggleButton = Instance.new("TextButton")
-local UICorner = Instance.new("UICorner")
-
-ScreenGui.Name = "FrostHubToggle"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false
-
-ToggleButton.Name = "ToggleButton"
-ToggleButton.Parent = ScreenGui
-ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 144, 255) -- Azul Gelo Forte
-ToggleButton.Position = UDim2.new(0.05, 0, 0.15, 0)
-ToggleButton.Size = UDim2.new(0, 50, 0, 50)
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.Text = "❄️"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.TextSize = 24
-ToggleButton.Active = true
-ToggleButton.Draggable = true -- Permite arrastar o botão pela tela do celular
-
-UICorner.CornerRadius = UDim.new(0, 12)
-UICorner.Parent = ToggleButton
-
-ToggleButton.MouseButton1Click:Connect(function()
-    local CoreGui = game:GetService("CoreGui")
-    local OrionUI = CoreGui:FindFirstChild("Orion")
-    if OrionUI then
-        OrionUI.Enabled = not OrionUI.Enabled
-    end
-end)
-
--- Configuração Visual do Círculo de FOV
-local FOVCircle = nil
-pcall(function()
-    if Drawing and Drawing.new then
-        FOVCircle = Drawing.new("Circle")
-        FOVCircle.Color = Color3.fromRGB(135, 206, 250)
-        FOVCircle.Thickness = 1.5
-        FOVCircle.Filled = false
-        FOVCircle.Transparency = 0.8
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if FOVCircle then
-        FOVCircle.Radius = getgenv().FOV_Radius
-        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        FOVCircle.Visible = getgenv().FOV_Circle
-    end
-end)
-
--- Função para achar o jogador mais próximo para as mecânicas de Aim
+-- Sistema de Busca de Alvo Próximo (PvP)
 local function GetClosestPlayer()
     local Target = nil
     local ShortestDistance = math.huge
@@ -99,7 +38,7 @@ local function GetClosestPlayer()
             local Pos, OnScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
             if OnScreen then
                 local Distance = (Vector2.new(Pos.X, Pos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
-                if Distance < ShortestDistance and Distance <= getgenv().FOV_Radius then
+                if Distance < ShortestDistance then
                     ShortestDistance = Distance
                     Target = player
                 end
@@ -109,121 +48,86 @@ local function GetClosestPlayer()
     return Target
 end
 
--- Função para verificar se há algum inimigo (NPC ou Player) perto para o Fast Attack Pro
+-- Função que detecta se há inimigos ou players perto para o Fast Attack
 local function IsEnemyNearby()
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return false end
     local MyPos = LocalPlayer.Character.HumanoidRootPart.Position
     
-    -- Verifica NPCs próximos no Workspace
     if Workspace:FindFirstChild("Enemies") then
         for _, npc in pairs(Workspace.Enemies:GetChildren()) do
             if npc:FindFirstChild("HumanoidRootPart") and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                if (npc.HumanoidRootPart.Position - MyPos).Magnitude <= 15 then
-                    return true
-                end
+                if (npc.HumanoidRootPart.Position - MyPos).Magnitude <= 18 then return true end
             end
         end
     end
     
-    -- Verifica outros Jogadores próximos
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            if (player.Character.HumanoidRootPart.Position - MyPos).Magnitude <= 15 then
-                return true
-            end
+            if (player.Character.HumanoidRootPart.Position - MyPos).Magnitude <= 18 then return true end
         end
     end
     return false
 end
 
 -- ====================================================================
--- INTERFACE GRÁFICA (UI) - ABAS E FUNÇÕES
+-- SEÇÕES DO MENU KAVO
 -- ====================================================================
 
-local CombatTab = Window:MakeTab({Name = "Combat / Aim", Icon = "rbxassetid://4483345998"})
-local VisualsTab = Window:MakeTab({Name = "Visuals / ESP", Icon = "rbxassetid://4483345998"})
-local MovementTab = Window:MakeTab({Name = "Movement", Icon = "rbxassetid://4483345998"})
+local CombatTab = Window:NewTab("Combat / Aim")
+local CombatSection = CombatTab:NewSection("Funções de PvP")
 
--- --- ABA COMBAT ---
+CombatSection:NewToggle("Fast Attack Inteligente (Perto = Dano)", "Ataca sozinho se chegar perto", function(state)
+    getgenv().FastAttack = state
+end)
 
-CombatTab:AddToggle({
-    Name = "Fast Attack Inteligente (Perto = Dano)",
-    Default = false,
-    Callback = function(Value) getgenv().FastAttack = Value end    
-})
+CombatSection:NewToggle("Ativar Aimbot Cam", "Trava a câmera no player", function(state)
+    getgenv().Aimbot = state
+end)
 
-CombatTab:AddToggle({
-    Name = "Ativar Aimbot Cam",
-    Default = false,
-    Callback = function(Value) getgenv().Aimbot = Value end    
-})
+CombatSection:NewToggle("Ativar Silent Aim (Hitbox Mobile)", "Redireciona os ataques", function(state)
+    getgenv().SilentAim = state
+end)
 
-CombatTab:AddToggle({
-    Name = "Ativar Silent Aim",
-    Default = false,
-    Callback = function(Value) getgenv().SilentAim = Value end    
-})
+CombatSection:NewToggle("Ativar Aim Kill (Teleport)", "Gruda no player", function(state)
+    getgenv().AimKill = state
+end)
 
-CombatTab:AddToggle({
-    Name = "Ativar Aim Kill (Teleport)",
-    Default = false,
-    Callback = function(Value) getgenv().AimKill = Value end    
-})
+local VisualsTab = Window:NewTab("Visuals / ESP")
+local VisualsSection = VisualsTab:NewSection("Rastreadores")
 
-CombatTab:AddToggle({
-    Name = "Exibir Círculo de FOV",
-    Default = false,
-    Callback = function(Value) getgenv().FOV_Circle = Value end    
-})
-
-CombatTab:AddSlider({
-    Name = "Tamanho do FOV",
-    Min = 30, Max = 500, Default = 100,
-    Color = Color3.fromRGB(135, 206, 250),
-    Increment = 5, ValueName = "Pixels",
-    Callback = function(Value) getgenv().FOV_Radius = Value end    
-})
-
--- --- ABA VISUAL ---
-
-VisualsTab:AddToggle({
-    Name = "Ativar ESP Boxes (Frost)",
-    Default = false,
-    Callback = function(Value)
-        getgenv().ESP = Value
-        if not Value then
-            for _, p in pairs(Players:GetPlayers()) do
-                if p.Character and p.Character:FindFirstChild("FrostESP") then
-                    p.Character.FrostESP:Destroy()
-                end
+VisualsSection:NewToggle("Ativar ESP Boxes (Frost)", "Veja players pelas paredes", function(state)
+    getgenv().ESP = state
+    if not state then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("FrostESP") then
+                p.Character.FrostESP:Destroy()
             end
         end
-    end    
-})
+    end
+end)
 
--- --- ABA MOVEMENT ---
+local MovementTab = Window:NewTab("Movement")
+local MovementSection = MovementTab:NewSection("Modificadores")
 
-MovementTab:AddSlider({
-    Name = "Velocidade (Speed)",
-    Min = 16, Max = 250, Default = 16,
-    Color = Color3.fromRGB(135, 206, 250),
-    Increment = 1, ValueName = "Studs",
-    Callback = function(Value) getgenv().SpeedValue = Value end    
-})
+MovementSection:NewSlider("Velocidade (Speed)", "Altera sua velocidade", 250, 16, function(s)
+    getgenv().SpeedValue = s
+end)
 
-MovementTab:AddSlider({
-    Name = "Altura do Pulo (Jump)",
-    Min = 50, Max = 300, Default = 50,
-    Color = Color3.fromRGB(135, 206, 250),
-    Increment = 1, ValueName = "Power",
-    Callback = function(Value) getgenv().JumpValue = Value end    
-})
+MovementSection:NewSlider("Altura do Pulo (Jump)", "Altera a força do pulo", 300, 50, function(s)
+    getgenv().JumpValue = s
+end)
+
+-- Botão nativo para fechar/minimizar a interface na aba principal
+local ConfigTab = Window:NewTab("Config")
+local ConfigSection = ConfigTab:NewSection("Opções da UI")
+ConfigSection:NewKeybind("Botão para Ocultar Menu", "Pressione para sumir com o menu", Enum.KeyCode.RightControl, function()
+    KavoLib:ToggleUI()
+end)
 
 -- ====================================================================
--- LOOPS CORE DE PROCESSAMENTO BACKGROUND
+-- LOOPS CORE DE EXECUÇÃO EM SEGUNDO PLANO
 -- ====================================================================
 
--- Loop de Movimentação e Efeitos Visuais (ESP)
 RunService.Heartbeat:Connect(function()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = getgenv().SpeedValue
@@ -246,10 +150,8 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Loop de Ataque Automático e Combate Avançado
 task.spawn(function()
     while task.wait() do
-        -- Se o Fast Attack estiver ligado e houver alguém por perto, bate automaticamente
         if getgenv().FastAttack and IsEnemyNearby() then
             pcall(function()
                 local NetModule = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
@@ -259,19 +161,15 @@ task.spawn(function()
             end)
         end
 
-        -- Lógicas de Combate e Trava de Mira
         if getgenv().Aimbot or getgenv().AimKill or getgenv().SilentAim then
             local Target = GetClosestPlayer()
             if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
-                
                 if getgenv().Aimbot then
                     Camera.CFrame = CFrame.new(Camera.CFrame.Position, Target.Character.HumanoidRootPart.Position)
                 end
-                
                 if getgenv().AimKill and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     LocalPlayer.Character.HumanoidRootPart.CFrame = Target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
                 end
-                
                 if getgenv().SilentAim and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     pcall(function()
                         local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
@@ -284,5 +182,3 @@ task.spawn(function()
         end
     end
 end)
-
-OrionLib:Init()
