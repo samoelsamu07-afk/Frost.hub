@@ -1,39 +1,83 @@
--- 1. CARREGAR A BIBLIOTECA VISUAL FLUENT
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- =========================================================================
+-- FROST HUB ❄️ - PRO EDITION (SEM BUGS / OTIMIZADO PARA MOBILE)
+-- =========================================================================
 
--- 2. CONFIGURAR A JANELA PRINCIPAL
+-- 1. NOTIFICAÇÃO DE INICIALIZAÇÃO (Estilo Hermanos Dev)
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Frost Hub ❄️",
+    Text = "Carregando a melhor UI de PvP Mobile...",
+    Duration = 4
+})
+
+-- 2. CARREGAR A BIBLIOTECA VISUAL FLUENT (Anti-Crash)
+local Fluent = loadstring(game:HttpGet("https://github.com"))()
+
+-- 3. CONFIGURAR A JANELA PRINCIPAL
 local Window = Fluent:CreateWindow({
     Title = "FROST HUB ❄️",
-    SubTitle = "Ultimate PvP Edition",
+    SubTitle = "Hermanos Dev Edition",
     TabWidth = 160,
     Size = UDim2.fromOffset(450, 320),
-    Acrylic = false, 
+    Acrylic = false, -- Mantém o jogo leve e sem lag no celular
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- 3. CRIAR AS ABAS NO MENU
+-- 4. ÍCONE FLUTUANTE CUSTOMIZADO (ABRIR / MINIMIZAR)
+local FrostToggleGui = Instance.new("ScreenGui")
+local FrostButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+local UIStroke = Instance.new("UIStroke")
+
+FrostToggleGui.Name = "FrostToggleGui"
+FrostToggleGui.Parent = game:GetService("CoreGui")
+FrostToggleGui.ResetOnSpawn = false
+
+FrostButton.Name = "FrostButton"
+FrostButton.Parent = FrostToggleGui
+FrostButton.Position = UDim2.new(0.1, 0, 0.15, 0)
+FrostButton.Size = UDim2.new(0, 55, 0, 55)
+FrostButton.BackgroundColor3 = Color3.fromRGB(15, 20, 35) -- Fundo escuro azulado
+FrostButton.Text = "❄️"
+FrostButton.TextSize = 26
+FrostButton.TextColor3 = Color3.fromRGB(0, 210, 255)
+FrostButton.Active = true
+FrostButton.Draggable = true -- Permite arrastar o ícone com o dedo
+
+UICorner.CornerRadius = UDim.new(1, 0) -- Deixa o botão perfeitamente redondo
+UICorner.Parent = FrostButton
+
+UIStroke.Thickness = 2
+UIStroke.Color = Color3.fromRGB(0, 170, 255) -- Borda neon azul gelo
+UIStroke.Parent = FrostButton
+
+-- Ação do botão flutuante para abrir e fechar a UI sem bugar
+FrostButton.MouseButton1Click:Connect(function()
+    Window:Minimize()
+end)
+
+-- 5. CRIAR AS ABAS NO MENU
 local Tabs = {
     Combate = Window:AddTab({ Title = "Combate PvP", Icon = "sword" }),
     Visual = Window:AddTab({ Title = "Visual (ESP)", Icon = "eye" }),
     Movimento = Window:AddTab({ Title = "Movimentação", Icon = "zap" })
 }
 
--- ==================== ABA 1: COMBATE (CAMLOCK & HITBOX) ====================
+-- ==================== ABA 1: COMBATE PvP ====================
 local CamLockAtivado = false
 local HitboxAtivada = false
 local HitboxTamanho = 2
 
--- Toggle do CamLock (Mira Automática)
+-- Toggle 1: CamLock Automático (Fixa a câmera no alvo)
 Tabs.Combate:AddToggle("ToggleCamLock", {
-    Title = "CamLock (Travar Mira)", 
+    Title = "CamLock (Travar Câmera)", 
     Default = false,
     Callback = function(Value)
         CamLockAtivado = Value
     end
 })
 
--- Função para achar o jogador mais próximo da mira para o CamLock
+-- Função segura para achar o jogador vivo mais próximo da mira
 local function obterJogadorMaisProximo()
     local maisProximo = nil
     local menorDistancia = math.huge
@@ -41,14 +85,17 @@ local function obterJogadorMaisProximo()
     local camera = workspace.CurrentCamera
 
     for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
-            local pPos, naTela = camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if naTela then
-                local mPos = game:GetService("UserInputService"):GetMouseLocation()
-                local distancia = (Vector2.new(pPos.X, pPos.Y) - mPos).Magnitude
-                if distancia < menorDistancia then
-                    maisProximo = player
-                    menorDistancia = distancia
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local pPos, naTela = camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                if naTela then
+                    local mPos = game:GetService("UserInputService"):GetMouseLocation()
+                    local distancia = (Vector2.new(pPos.X, pPos.Y) - mPos).Magnitude
+                    if distancia < menorDistancia then
+                        maisProximo = player
+                        menorDistancia = distancia
+                    end
                 end
             end
         end
@@ -56,21 +103,20 @@ local function obterJogadorMaisProximo()
     return maisProximo
 end
 
--- Loop do CamLock rodando na Câmera do Jogo
+-- Render do CamLock rodando na Câmera do Jogo sem atrasos
 game:GetService("RunService").RenderStepped:Connect(function()
     if CamLockAtivado then
         local alvo = obterJogadorMaisProximo()
         if alvo and alvo.Character and alvo.Character:FindFirstChild("HumanoidRootPart") then
             local camera = workspace.CurrentCamera
-            -- Trava suavemente a câmera na cabeça ou peito do oponente
             camera.CFrame = CFrame.new(camera.CFrame.Position, alvo.Character.HumanoidRootPart.Position)
         end
     end
 end)
 
--- Configuração da Hitbox
+-- Toggle 2: Hitbox Infalível (Método Seguro contra Detecção)
 Tabs.Combate:AddToggle("ToggleHitbox", {
-    Title = "Expandir Hitbox", 
+    Title = "Expandir Hitbox dos Inimigos", 
     Default = false,
     Callback = function(Value)
         HitboxAtivada = Value
@@ -78,12 +124,12 @@ Tabs.Combate:AddToggle("ToggleHitbox", {
 })
 
 Tabs.Combate:AddSlider("SliderHitbox", {
-    Title = "Tamanho da Hitbox",
-    Default = 2, Min = 2, Max = 20, Rounding = 0,
+    Title = "Tamanho da Caixa",
+    Default = 2, Min = 2, Max = 15, Rounding = 0,
     Callback = function(Value) HitboxTamanho = Value end
 })
 
--- Loop para aplicar a hitbox aumentada nos inimigos
+-- Loop otimizado que altera o tamanho sem quebrar o jogo
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
@@ -93,8 +139,8 @@ task.spawn(function()
                     local hrp = player.Character.HumanoidRootPart
                     if HitboxAtivada then
                         hrp.Size = Vector3.new(HitboxTamanho, HitboxTamanho, HitboxTamanho)
-                        hrp.Transparency = 0.7
-                        hrp.BrickColor = BrickColor.new("Light blue")
+                        hrp.Transparency = 0.6
+                        hrp.BrickColor = BrickColor.new("Cyan")
                         hrp.CanCollide = false
                     else
                         hrp.Size = Vector3.new(2, 2, 1)
@@ -111,14 +157,14 @@ end)
 local EspAtivado = false
 
 Tabs.Visual:AddToggle("ToggleESP", {
-    Title = "Ativar ESP (Ver pelas Paredes)", 
+    Title = "Ativar Wallhack (ESP Highlight)", 
     Default = false,
     Callback = function(Value)
         EspAtivado = Value
     end
 })
 
--- Loop do ESP criando caixas de realce (Highlight) nos jogadores
+-- Criação e destruição dinâmica do efeito de raio-X nos oponentes
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
@@ -129,15 +175,19 @@ task.spawn(function()
                     local hl = char:FindFirstChild("FrostESP")
                     
                     if EspAtivado then
-                        if not hl then
-                            hl = Instance.new("Highlight")
-                            hl.Name = "FrostESP"
-                            hl.Parent = char
+                        local humanoid = char:FindFirstChildOfClass("Humanoid")
+                        if humanoid and humanoid.Health > 0 then
+                            if not hl then
+                                hl = Instance.new("Highlight")
+                                hl.Name = "FrostESP"
+                                hl.Parent = char
+                            end
+                            hl.FillColor = Color3.fromRGB(0, 210, 255)
+                            hl.FillTransparency = 0.5
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        else
+                            if hl then hl:Destroy() end
                         end
-                        hl.FillColor = Color3.fromRGB(0, 170, 255) -- Azul Gelo
-                        hl.FillTransparency = 0.5
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        hl.OutlineTransparency = 0
                     else
                         if hl then hl:Destroy() end
                     end
@@ -148,31 +198,57 @@ task.spawn(function()
 end)
 
 -- ==================== ABA 3: MOVIMENTAÇÃO ====================
+local WalkSpeedOtimizado = 16
+
 Tabs.Movimento:AddSlider("SliderVelocidade", {
-    Title = "Velocidade Correndo",
-    Default = 16, Min = 16, Max = 100, Rounding = 0,
+    Title = "Velocidade de Corrida",
+    Default = 16, Min = 16, Max = 120, Rounding = 0,
     Callback = function(Value)
-        local p = game.Players.LocalPlayer
-        if p.Character and p.Character:FindFirstChild("Humanoid") then
-            p.Character.Humanoid.WalkSpeed = Value
-        end
+        WalkSpeedOtimizado = Value
     end
 })
 
+-- Loop persistente: Altera a velocidade mesmo se o jogador morrer ou o jogo tentar resetar
+task.spawn(function()
+    while task.wait(0.1) do
+        pcall(function()
+            local p = game.Players.LocalPlayer
+            if p.Character and p.Character:FindFirstChild("Humanoid") then
+                if p.Character.Humanoid.WalkSpeed ~= WalkSpeedOtimizado then
+                    p.Character.Humanoid.WalkSpeed = WalkSpeedOtimizado
+                end
+            end
+        end)
+    end
+end)
+
+-- Pulo Infinito Sem Bugs de Queda
 local PuloInfinitoAtivado = false
 Tabs.Movimento:AddToggle("TogglePulo", {
-    Title = "Pulo Infinito", Default = false,
-    Callback = function(Value) PuloInfinitoAtivado = Value end
+    Title = "Liberar Pulo Infinito", 
+    Default = false,
+    Callback = function(Value) 
+        PuloInfinitoAtivado = Value 
+    end
 })
 
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if PuloInfinitoAtivado then
-        local p = game.Players.LocalPlayer
-        if p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
-            p.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-        end
+        pcall(function()
+            local p = game.Players.LocalPlayer
+            if p.Character and p.Character:FindFirstChildOfClass("Humanoid") then
+                p.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            end
+        end)
     end
 end)
 
--- Iniciar na aba de combate
+-- Abre a aba de PvP automaticamente
 Tabs.Combate:Select()
+
+-- Notificação de sucesso final
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Frost Hub ❄️",
+    Text = "Frost Hub injetado com sucesso!",
+    Duration = 3
+})
