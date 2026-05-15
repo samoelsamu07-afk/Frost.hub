@@ -1,9 +1,13 @@
 -- =========================================================================
--- FROST PVP DEV HUB ❄️ | RECALIBRADO & CORRIGIDO
+-- FROST PVP DEV HUB ❄️ | RECALIBRADO & CORRIGIDO PARA BLOX FRUITS
 -- =========================================================================
 
-if game:GetService("CoreGui"):FindFirstChild("FrostToggleGui") then game:GetService("CoreGui").FrostToggleGui:Destroy() end
-if game:GetService("CoreGui"):FindFirstChild("FrostESP_Storage") then game:GetService("CoreGui").FrostESP_Storage:Destroy() end
+if game:GetService("CoreGui"):FindFirstChild("FrostToggleGui") then 
+    game:GetService("CoreGui").FrostToggleGui:Destroy() 
+end
+if game:GetService("CoreGui"):FindFirstChild("FrostESP_Storage") then 
+    game:GetService("CoreGui").FrostESP_Storage:Destroy() 
+end
 
 local FrostConfig = {
     Aimbot = false,
@@ -15,7 +19,7 @@ local FrostConfig = {
     Velocidade = 16,
     Pulo = 50,
     PuloInfinito = false,
-    AimbotRaio = 150 -- Distância máxima em pixels na tela (Aimbot não puxa de longe)
+    AimbotRaio = 150 -- Distância máxima em pixels na tela
 }
 
 local Players = game:GetService("Players")
@@ -24,7 +28,7 @@ local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- Círculo Visual do FOV (Indica o limite de aproximação do Aimbot)
+-- Círculo Visual do FOV
 local FOVCirculo = Drawing.new("Circle")
 FOVCirculo.Color = Color3.fromRGB(0, 210, 255)
 FOVCirculo.Thickness = 1.5
@@ -33,21 +37,24 @@ FOVCirculo.Radius = FrostConfig.AimbotRaio
 FOVCirculo.Filled = false
 FOVCirculo.Visible = false
 
--- Atualiza a posição do círculo de limite na tela do celular
+-- Atualiza a posição do círculo
 RunService.RenderStepped:Connect(function()
     local mPos = UserInputService:GetMouseLocation()
     FOVCirculo.Position = Vector2.new(mPos.X, mPos.Y)
     FOVCirculo.Radius = FrostConfig.AimbotRaio
 end)
 
--- Procura inimigos vivos APENAS se estiverem perto da mira (dentro do limite)
+-- Procura inimigos vivos perto da mira (Otimizado para Blox Fruits)
 local function obterInimigoPerto()
     local alvo, menorDistancia = nil, FrostConfig.AimbotRaio
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(FrostConfig.HitboxAlvo) then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                local pPos, naTela = Camera:WorldToViewportPoint(player.Character[FrostConfig.HitboxAlvo].Position)
+        if player ~= LocalPlayer and player.Character then
+            local char = player.Character
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            
+            if hrp and humanoid and humanoid.Health > 0 then
+                local pPos, naTela = Camera:WorldToViewportPoint(hrp.Position)
                 if naTela then
                     local mPos = UserInputService:GetMouseLocation()
                     local distancia = (Vector2.new(pPos.X, pPos.Y) - mPos).Magnitude
@@ -62,24 +69,27 @@ local function obterInimigoPerto()
     return alvo
 end
 
--- Thread Corrigida de Combate
+-- Aimbot & Silent Aim
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if FrostConfig.Aimbot or FrostConfig.SilentAim then
             local inimigo = obterInimigoPerto()
-            if inimigo and inimigo.Character and inimigo.Character:FindFirstChild(FrostConfig.HitboxAlvo) then
-                local alvoPos = inimigo.Character[FrostConfig.HitboxAlvo].Position
-                if FrostConfig.SilentAim then
-                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoPos)
-                elseif FrostConfig.Aimbot then
-                    Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvoPos), FrostConfig.AimbotSuavidade)
+            if inimigo and inimigo.Character then
+                local hrp = inimigo.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local alvoPos = hrp.Position
+                    if FrostConfig.SilentAim then
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoPos)
+                    elseif FrostConfig.Aimbot then
+                        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvoPos), FrostConfig.AimbotSuavidade)
+                    end
                 end
             end
         end
     end)
 end)
 
--- CORREÇÃO DO ESP: Novo método usando Adornments (À prova de falhas no Delta)
+-- ESP com Adornments (Caixas e Linhas)
 local ESPFolder = Instance.new("Folder")
 ESPFolder.Name = "FrostESP_Storage"
 ESPFolder.Parent = game:GetService("CoreGui")
@@ -104,20 +114,26 @@ local function CriarESP(player)
 
     RunService.RenderStepped:Connect(function()
         pcall(function()
-            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
-                local hrp = player.Character.HumanoidRootPart
+            if player and player.Character then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
                 
-                if FrostConfig.ESP_Box then
-                    Box.Adornee = hrp
+                if hrp and humanoid and humanoid.Health > 0 then
+                    if FrostConfig.ESP_Box then
+                        Box.Adornee = hrp
+                    else
+                        Box.Adornee = nil
+                    end
+                    
+                    if FrostConfig.ESP_Tracer then
+                        Tracer.Adornee = hrp
+                        local vetor = Camera.CFrame.Position - hrp.Position
+                        Tracer.Direction = vetor.Unit * -vetor.Magnitude
+                    else
+                        Tracer.Adornee = nil
+                    end
                 else
                     Box.Adornee = nil
-                end
-                
-                if FrostConfig.ESP_Tracer then
-                    Tracer.Adornee = hrp
-                    local vetor = Camera.CFrame.Position - hrp.Position
-                    Tracer.Direction = vetor.Unit * -vetor.Magnitude
-                else
                     Tracer.Adornee = nil
                 end
             else
@@ -129,14 +145,19 @@ local function CriarESP(player)
 end
 
 Players.PlayerAdded:Connect(CriarESP)
-for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CriarESP(p) end end
+for _, p in pairs(Players:GetPlayers()) do 
+    if p ~= LocalPlayer then 
+        CriarESP(p) 
+    end 
+end
 
--- INTERFACE VISUAL
-local Fluent = loadstring(game:HttpGet("https://github.com"))()
+-- INTERFACE VISUAL - Usando Fluent corrigido
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/fluent.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/main/lib/savemanager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "FROST HUB ❄️",
-    SubTitle = "Frost PvP Dev v1.1",
+    Title = "FROST HUB ❄️ | Blox Fruits",
+    SubTitle = "PvP Tool v1.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(460, 330),
     Acrylic = false,
@@ -144,48 +165,126 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Combate = Window:AddTab({ Title = "Combate Legit/Rage", Icon = "sword" }),
+    Combate = Window:AddTab({ Title = "Combate", Icon = "sword" }),
     Visual = Window:AddTab({ Title = "Visual (ESP)", Icon = "eye" }),
     Movimento = Window:AddTab({ Title = "Movimentação", Icon = "zap" })
 }
 
--- COMBATE
-Tabs.Combate:AddToggle("ToggleAimbot", { Title = "Ativar Aimbot Próximo", Default = false, Callback = function(v) FrostConfig.Aimbot = v FOVCirculo.Visible = v end })
-Tabs.Combate:AddSlider("SliderRaio", { Title = "Raio de Proximidade (FOV)", Default = 150, Min = 50, Max = 400, Rounding = 0, Callback = function(v) FrostConfig.AimbotRaio = v end })
-Tabs.Combate:AddSlider("SliderSuave", { Title = "Suavidade da Mira", Default = 0.1, Min = 0.01, Max = 1, Rounding = 2, Callback = function(v) FrostConfig.AimbotSuavidade = v end })
-Tabs.Combate:AddToggle("ToggleSilent", { Title = "Ativar Silent Aim", Default = false, Callback = function(v) FrostConfig.SilentAim = v end })
+-- COMBATE TAB
+Tabs.Combate:AddToggle("ToggleAimbot", { 
+    Title = "Ativar Aimbot", 
+    Default = false, 
+    Callback = function(v) 
+        FrostConfig.Aimbot = v 
+        FOVCirculo.Visible = v 
+    end 
+})
 
--- VISUAL
-Tabs.Visual:AddToggle("ToggleESPBox", { Title = "Exibir Caixas (ESP Box)", Default = false, Callback = function(v) FrostConfig.ESP_Box = v end })
-Tabs.Visual:AddToggle("ToggleESPTracer", { Title = "Exibir Linhas (Tracers)", Default = false, Callback = function(v) FrostConfig.ESP_Tracer = v end })
+Tabs.Combate:AddSlider("SliderRaio", { 
+    Title = "Raio de Proximidade (FOV)", 
+    Default = 150, 
+    Min = 50, 
+    Max = 400, 
+    Rounding = 0, 
+    Callback = function(v) 
+        FrostConfig.AimbotRaio = v 
+    end 
+})
 
--- MOVIMENTAÇÃO (CORRIGIDA VIA HUMANOD COMPACTO & VELOCIDADE FORÇADA)
-Tabs.Movimento:AddSlider("SliderSpeed", { Title = "Velocidade de Corrida", Default = 16, Min = 16, Max = 120, Rounding = 0, Callback = function(v) FrostConfig.Velocidade = v end })
-Tabs.Movimento:AddSlider("SliderJump", { Title = "Força do Pulo", Default = 50, Min = 50, Max = 200, Rounding = 0, Callback = function(v) FrostConfig.Pulo = v end })
-Tabs.Movimento:AddToggle("TogglePuloInf", { Title = "Habilitar Pulo Infinito", Default = false, Callback = function(v) FrostConfig.PuloInfinito = v end })
+Tabs.Combate:AddSlider("SliderSuave", { 
+    Title = "Suavidade da Mira", 
+    Default = 0.1, 
+    Min = 0.01, 
+    Max = 1, 
+    Rounding = 2, 
+    Callback = function(v) 
+        FrostConfig.AimbotSuavidade = v 
+    end 
+})
 
--- Loop de Força Bruta para burlar travas de Speed dos jogos modernos
+Tabs.Combate:AddToggle("ToggleSilent", { 
+    Title = "Ativar Silent Aim", 
+    Default = false, 
+    Callback = function(v) 
+        FrostConfig.SilentAim = v 
+    end 
+})
+
+-- VISUAL TAB
+Tabs.Visual:AddToggle("ToggleESPBox", { 
+    Title = "Exibir Caixas (ESP Box)", 
+    Default = false, 
+    Callback = function(v) 
+        FrostConfig.ESP_Box = v 
+    end 
+})
+
+Tabs.Visual:AddToggle("ToggleESPTracer", { 
+    Title = "Exibir Linhas (Tracers)", 
+    Default = false, 
+    Callback = function(v) 
+        FrostConfig.ESP_Tracer = v 
+    end 
+})
+
+-- MOVIMENTAÇÃO TAB
+Tabs.Movimento:AddSlider("SliderSpeed", { 
+    Title = "Velocidade de Corrida", 
+    Default = 16, 
+    Min = 16, 
+    Max = 120, 
+    Rounding = 0, 
+    Callback = function(v) 
+        FrostConfig.Velocidade = v 
+    end 
+})
+
+Tabs.Movimento:AddSlider("SliderJump", { 
+    Title = "Força do Pulo", 
+    Default = 50, 
+    Min = 50, 
+    Max = 200, 
+    Rounding = 0, 
+    Callback = function(v) 
+        FrostConfig.Pulo = v 
+    end 
+})
+
+Tabs.Movimento:AddToggle("TogglePuloInf", { 
+    Title = "Habilitar Pulo Infinito", 
+    Default = false, 
+    Callback = function(v) 
+        FrostConfig.PuloInfinito = v 
+    end 
+})
+
+-- Loop de aplicação de valores
 RunService.Heartbeat:Connect(function()
     pcall(function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        if LocalPlayer.Character then
             local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            -- Força a velocidade diretamente na raiz de movimento do boneco
-            hum.WalkSpeed = FrostConfig.Velocidade
-            
-            -- Altera as duas propriedades de pulo para não bugar independente do jogo
-            hum.JumpPower = FrostConfig.Pulo
-            if LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and hum.Jump then
-                hum.JumpHeight = FrostConfig.Pulo / 4 -- Conversão padrão de física
+            if hum then
+                hum.WalkSpeed = FrostConfig.Velocidade
+                hum.JumpPower = FrostConfig.Pulo
+                
+                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and hum.JumpHeight then
+                    hum.JumpHeight = FrostConfig.Pulo / 4
+                end
             end
         end
     end)
 end)
 
+-- Pulo Infinito
 UserInputService.JumpRequest:Connect(function()
     if FrostConfig.PuloInfinito then
         pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-                LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+            if LocalPlayer.Character then
+                local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
             end
         end)
     end
