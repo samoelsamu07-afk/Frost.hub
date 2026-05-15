@@ -90,7 +90,7 @@ local function CriarESP(player)
 
     RunService.RenderStepped:Connect(function()
         pcall(function()
-            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then
                 local hrp = player.Character.HumanoidRootPart
                 
                 -- Controle de Visibilidade do ESP Box
@@ -118,7 +118,7 @@ Players.PlayerAdded:Connect(CriarESP)
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CriarESP(p) end end
 
 -- Interface Gráfica Otimizada (Fluent Library Estável)
-local Fluent = loadstring(game:HttpGet("https://github.com"))()
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
     Title = "FROST HUB ❄️",
@@ -142,7 +142,7 @@ Tabs.Combate:AddToggle("ToggleSilent", { Title = "Ativar Silent Aim (Rage)", Def
 Tabs.Combate:AddDropdown("DropHitbox", { Title = "Foco do Ataque", Values = {"HumanoidRootPart", "Head"}, CurrentValue = "HumanoidRootPart", Callback = function(v) FrostConfig.HitboxAlvo = v end })
 
 -- Configurações da Aba Visual
-Tabs.Visual:AddToggle("ToggleESPBox", { Title = "Exibir Caixa 3D (ESP Box)", Default = false, Callback = function(v) FrostConfig.ESP_Box = v v end })
+Tabs.Visual:AddToggle("ToggleESPBox", { Title = "Exibir Caixa 3D (ESP Box)", Default = false, Callback = function(v) FrostConfig.ESP_Box = v end })
 Tabs.Visual:AddToggle("ToggleESPTracer", { Title = "Exibir Linhas (Tracers)", Default = false, Callback = function(v) FrostConfig.ESP_Tracer = v end })
 
 -- Configurações da Aba de Movimentação
